@@ -2,12 +2,19 @@ package main
 
 import (
   "encoding/json"
+  "fmt"
   "log"
   "net/http"
   "strings"
   "time"
 )
 
+
+// constants
+const WUNDERGROUND_API_KEY string = "foo"
+const FORECAST_IO_API_KEY string = "bar"
+const TOKYO_LAT float64 = 35.6895
+const TOKYO_LON float64 = 139.6917
 
 // types
 
@@ -27,6 +34,10 @@ type weatherProvider interface {
 }
 
 type weatherUnderground struct {
+  apiKey string
+}
+
+type forecastIo struct {
   apiKey string
 }
 
@@ -66,6 +77,30 @@ func (w multiWeatherProvider) temperature(city string) (float64, error) {
 
   // Return the average, same as before
   return sum / float64(len(w)), nil
+}
+
+func (w forecastIo) temperature(city string) (float64, error) {
+  // TODO: since the forecast IO API requires lat/long, do a geo lookup here
+  resp, err := http.Get(fmt.Sprintf("https://api.forecast.io/forecast/%s/%.6f,%.6f", w.apiKey, TOKYO_LAT, TOKYO_LON))
+  if err != nil {
+    return 0, err
+  }
+
+  defer resp.Body.Close()
+
+  var d struct {
+    Currently struct {
+      Temperature float64 `json:temperature`
+    } `json:"currently"`
+  }
+
+  if err := json.NewDecoder(resp.Body).Decode(&d); err != nil {
+    return 0, err
+  }
+
+  kelvin := d.Currently.Temperature + 273.15
+  log.Printf("forecastIo: %s: %.2f", city, kelvin)
+  return kelvin, nil
 }
 
 func (w weatherUnderground) temperature(city string) (float64, error) {
@@ -140,7 +175,8 @@ func hello(w http.ResponseWriter, r *http.Request) {
 func main() {
   mw := multiWeatherProvider{
     openWeatherMap{},
-    //weatherUnderground{apiKey: "your-key-here"},
+    //weatherUnderground{apiKey: WUNDERGROUND_API_KEY},
+    forecastIo{apiKey:FORECAST_IO_API_KEY},
   }
 
   http.HandleFunc("/", hello)
