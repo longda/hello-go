@@ -2,6 +2,7 @@ package main
 
 import (
   "encoding/json"
+  "errors"
   "fmt"
   "log"
   "net/http"
@@ -70,8 +71,10 @@ func (w multiWeatherProvider) temperature(city string) (float64, error) {
     select {
     case temp := <-temps:
       sum += temp
-    case err:= <-errs:
+    case err := <-errs:
       return 0, err
+    case <-time.After(1 * time.Minute):
+      return 0, errors.New("Timeout elapsed.")
     }
   }
 
