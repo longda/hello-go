@@ -101,7 +101,7 @@ func (w forecastIo) temperature(city string) (float64, error) {
     return 0, err
   }
 
-  kelvin := d.Currently.Temperature + 273.15
+  kelvin := (d.Currently.Temperature + 459.67) * 5 / 9
   log.Printf("forecastIo: %s: %.2f", city, kelvin)
   return kelvin, nil
 }
